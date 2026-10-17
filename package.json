@@ -6,8 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
-    "seed": "node scripts/seed-dummy-data.js"
+    "seed": "node scripts/seed-dummy-data.js",
+    "create-users": "node scripts/create-auth-users.js"
   },
   "private": true,
   "dependencies": {
