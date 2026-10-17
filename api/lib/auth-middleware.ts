@@ -35,7 +35,7 @@ export async function verifyAuthToken(req: IncomingMessage): Promise<Authenticat
     return {
       uid: decodedToken.uid,
       email: decodedToken.email,
-      name: decodedToken.name || (userData?.['name'] as string | undefined),
+      name: (decodedToken['name'] as string | undefined) || (userData?.['name'] as string | undefined),
       superAdmin: isSuperAdmin,
     };
   } catch (error) {

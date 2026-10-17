@@ -124,7 +124,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         memberData
       );
 
-      return sendJson(res, 200, { success: true, uid, ...memberData });
+      return sendJson(res, 200, { success: true, ...memberData });
     }
 
     // DELETE: Remove member from project

@@ -8,7 +8,7 @@ import {
 } from './lib/auth-middleware';
 import { getFirestore } from './lib/firebase-admin';
 import { validateGeofence } from './lib/geofence';
-import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 interface ObservationPayload {
   projectId: string;
@@ -160,7 +160,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       areaId,
       observerUid: user.uid,
       observerName: user.name || user.email || 'Petugas',
-      submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+      submittedAt: FieldValue.serverTimestamp(),
       submittedAtIso: nowIso,
       loc: {
         lat: loc.lat,
