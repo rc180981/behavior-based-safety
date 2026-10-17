@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { verifyAuthToken, sendJson } from '../lib/auth-middleware';
-import { getFirestore } from '../lib/firebase-admin';
+import { verifyAuthToken, sendJson } from '../../lib/auth-middleware';
+import { getFirestore } from '../../lib/firebase-admin';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'GET') {

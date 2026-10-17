@@ -5,8 +5,8 @@ import {
   parseJsonBody, 
   recordAuditLog, 
   sendJson 
-} from '../lib/auth-middleware';
-import { getFirestore, getAuth } from '../lib/firebase-admin';
+} from '../../lib/auth-middleware';
+import { getFirestore, getAuth } from '../../lib/firebase-admin';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {

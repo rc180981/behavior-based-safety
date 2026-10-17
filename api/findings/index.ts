@@ -3,8 +3,8 @@ import {
   verifyAuthToken, 
   checkProjectRole, 
   sendJson 
-} from '../lib/auth-middleware';
-import { getFirestore } from '../lib/firebase-admin';
+} from '../../lib/auth-middleware';
+import { getFirestore } from '../../lib/firebase-admin';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'GET') {

@@ -5,9 +5,9 @@ import {
   parseJsonBody, 
   recordAuditLog, 
   sendJson 
-} from './lib/auth-middleware';
-import { getFirestore } from './lib/firebase-admin';
-import { validateGeofence } from './lib/geofence';
+} from '../lib/auth-middleware';
+import { getFirestore } from '../lib/firebase-admin';
+import { validateGeofence } from '../lib/geofence';
 import { FieldValue } from 'firebase-admin/firestore';
 
 interface ObservationPayload {
