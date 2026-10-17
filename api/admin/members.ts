@@ -119,5 +119,62 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
   }
 
+  // DELETE: Remove member from project
+  if (req.method === 'DELETE') {
+    const url = new URL(req.url || '', 'http://localhost');
+    const projectId = url.searchParams.get('projectId');
+    const targetUid = url.searchParams.get('uid');
+
+    if (!projectId || !targetUid) {
+      return sendJson(res, 400, { error: 'Parameter projectId dan uid wajib disertakan' });
+    }
+
+    try {
+      const role = await checkProjectRole(projectId, user);
+      if (role !== 'admin') {
+        return sendJson(res, 403, { error: 'Hanya Admin proyek yang dapat menghapus anggota' });
+      }
+
+      // Prevent admin from removing themselves if they are the only admin
+      if (targetUid === user.uid) {
+        const adminsSnap = await db
+          .collection('projects')
+          .doc(projectId)
+          .collection('members')
+          .where('role', '==', 'admin')
+          .where('active', '==', true)
+          .get();
+
+        if (adminsSnap.size <= 1) {
+          return sendJson(res, 400, {
+            error: 'Anda tidak dapat menghapus diri sendiri karena Anda satu-satunya Admin aktif di proyek ini',
+          });
+        }
+      }
+
+      const memberRef = db.collection('projects').doc(projectId).collection('members').doc(targetUid);
+      const prevDoc = await memberRef.get();
+      if (!prevDoc.exists) {
+        return sendJson(res, 404, { error: 'Anggota tidak ditemukan' });
+      }
+
+      await memberRef.delete();
+
+      await recordAuditLog(
+        user.uid,
+        'remove_project_member',
+        `projects/${projectId}/members/${targetUid}`,
+        prevDoc.data(),
+        null
+      );
+
+      return sendJson(res, 200, { success: true, message: 'Anggota berhasil dihapus dari proyek' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal menghapus anggota';
+      return sendJson(res, 500, { error: msg });
+    }
+  }
+
   return sendJson(res, 405, { error: 'Method not allowed' });
 }
+

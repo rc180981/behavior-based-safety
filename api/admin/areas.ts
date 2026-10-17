@@ -98,5 +98,45 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
   }
 
+  // DELETE: Remove or deactivate an area
+  if (req.method === 'DELETE') {
+    const url = new URL(req.url || '', 'http://localhost');
+    const projectId = url.searchParams.get('projectId');
+    const areaId = url.searchParams.get('areaId');
+
+    if (!projectId || !areaId) {
+      return sendJson(res, 400, { error: 'Parameter projectId dan areaId wajib disertakan' });
+    }
+
+    try {
+      const role = await checkProjectRole(projectId, user);
+      if (role !== 'admin') {
+        return sendJson(res, 403, { error: 'Hanya Admin proyek yang dapat menghapus area' });
+      }
+
+      const areaRef = db.collection('projects').doc(projectId).collection('areas').doc(areaId);
+      const prevDoc = await areaRef.get();
+      if (!prevDoc.exists) {
+        return sendJson(res, 404, { error: 'Area tidak ditemukan' });
+      }
+
+      await areaRef.delete();
+
+      await recordAuditLog(
+        user.uid,
+        'delete_area',
+        `projects/${projectId}/areas/${areaId}`,
+        prevDoc.data(),
+        null
+      );
+
+      return sendJson(res, 200, { success: true, message: 'Area berhasil dihapus' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal menghapus area';
+      return sendJson(res, 500, { error: msg });
+    }
+  }
+
   return sendJson(res, 405, { error: 'Method not allowed' });
 }
+

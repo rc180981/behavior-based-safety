@@ -78,16 +78,76 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         active?: boolean;
       }>(req);
 
-      if (!body.projectId || !body.itemId || !body.areaId || !body.category) {
-        return sendJson(res, 400, { error: 'projectId, itemId, areaId, dan category wajib diisi' });
-      }
-
       const role = await checkProjectRole(body.projectId, user);
       if (role !== 'admin') {
         return sendJson(res, 403, { error: 'Hanya Admin proyek yang dapat mengelola item HSE' });
       }
 
       const col = db.collection('projects').doc(body.projectId).collection('projectItems');
+
+      // Special action: Sync master BBS items to project if missing
+      if ((body as { action?: string }).action === 'sync_master') {
+        let bbsSnap = await db.collection('bbsItems').where('active', '==', true).get();
+        if (bbsSnap.empty) {
+          // Trigger initial seeding in bbs-items if empty
+          const seedItems = [
+            {
+              title: 'Memasuki area warehouse memakai APD: helm dan safety vest',
+              description: 'Petugas dan pekerja wajib menggunakan helm standar dengan tali dagu terikat dan safety vest reflektif sebelum melangkah masuk area pergudangan.',
+              standardImagePath: 'standards/default/apd-helm-vest.png',
+              version: 1,
+              active: true,
+            },
+            {
+              title: 'Berjalan pada jalur pejalan kaki yang tersedia',
+              description: 'Berjalan hanya di dalam garis marka pejalan kaki (pedestrian walkway). Tidak memotong jalur forklift atau alat berat operasional.',
+              standardImagePath: 'standards/default/jalur-pejalan-kaki.png',
+              version: 1,
+              active: true,
+            },
+            {
+              title: 'Tidak menggunakan handphone saat berjalan kaki',
+              description: 'Dilarang mengetik, menelpon, atau melihat layar telepon genggam saat sedang berjalan kaki di seluruh area operasional.',
+              standardImagePath: 'standards/default/no-handphone-walk.png',
+              version: 1,
+              active: true,
+            },
+          ];
+          for (const item of seedItems) {
+            await db.collection('bbsItems').add({ ...item, createdAt: new Date().toISOString() });
+          }
+          bbsSnap = await db.collection('bbsItems').where('active', '==', true).get();
+        }
+
+        const existingSnap = await col.get();
+        const existingItemIds = new Set(existingSnap.docs.map((d) => d.data()['itemId']));
+
+        const areasSnap = await db.collection('projects').doc(body.projectId).collection('areas').get();
+        const defaultAreaId = !areasSnap.empty ? areasSnap.docs[0]!.id : 'ALL';
+
+        let addedCount = 0;
+        let index = 0;
+        for (const bDoc of bbsSnap.docs) {
+          if (!existingItemIds.has(bDoc.id)) {
+            await col.add({
+              itemId: bDoc.id,
+              areaId: defaultAreaId,
+              category: index < 2 ? 'wajib' : 'medium',
+              standardVersion: bDoc.data()['version'] || 1,
+              active: true,
+              createdAt: new Date().toISOString(),
+            });
+            addedCount++;
+          }
+          index++;
+        }
+
+        return sendJson(res, 200, { success: true, addedCount, message: `${addedCount} item master berhasil disinkronkan ke proyek` });
+      }
+
+      if (!body.itemId || !body.areaId || !body.category) {
+        return sendJson(res, 400, { error: 'itemId, areaId, dan category wajib diisi' });
+      }
 
       if (body.id) {
         const itemRef = col.doc(body.id);

@@ -50,7 +50,23 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // POST: Create new project (Admin only)
   if (req.method === 'POST') {
     if (!user.superAdmin) {
-      return sendJson(res, 403, { error: 'Hanya SuperAdmin yang dapat membuat proyek baru' });
+      // Allow if no projects exist yet or user has admin role
+      const anyProjectSnap = await db.collection('projects').limit(1).get();
+      if (!anyProjectSnap.empty) {
+        // Check if user is admin in any existing project
+        const projectsSnap = await db.collection('projects').get();
+        let isAdmin = false;
+        for (const p of projectsSnap.docs) {
+          const m = await p.ref.collection('members').doc(user.uid).get();
+          if (m.exists && m.data()?.['role'] === 'admin' && m.data()?.['active'] === true) {
+            isAdmin = true;
+            break;
+          }
+        }
+        if (!isAdmin) {
+          return sendJson(res, 403, { error: 'Hanya Admin atau SuperAdmin yang dapat membuat proyek baru' });
+        }
+      }
     }
 
     try {
@@ -144,6 +160,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (body.riskLevel) updateData['riskLevel'] = body.riskLevel;
       if (body.dueDays) updateData['dueDays'] = body.dueDays;
       if (body.name) updateData['name'] = body.name;
+      if (body.code) updateData['code'] = body.code.toUpperCase();
 
       await projectRef.update(updateData);
 
