@@ -21,21 +21,41 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (req.method === 'GET') {
       if (user.superAdmin) {
         const snap = await db.collection('projects').get();
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const list = snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          userRole: 'admin',
+        }));
         return sendJson(res, 200, { projects: list });
       }
 
-      // Find projects where user is an active member
+      // Find projects where user is an active member (by UID or email)
       const projectsSnap = await db.collection('projects').where('status', '==', 'active').get();
       const accessibleProjects = [];
 
       for (const pDoc of projectsSnap.docs) {
-        const memberDoc = await pDoc.ref.collection('members').doc(user.uid).get();
-        if (memberDoc.exists && memberDoc.data()?.['active'] === true) {
+        let memberDoc = await pDoc.ref.collection('members').doc(user.uid).get();
+        let userRole = memberDoc.data()?.['role'];
+        let isActive = memberDoc.data()?.['active'] === true;
+
+        if (!memberDoc.exists && user.email) {
+          const emailSnap = await pDoc.ref.collection('members')
+            .where('email', '==', user.email)
+            .where('active', '==', true)
+            .limit(1)
+            .get();
+
+          if (!emailSnap.empty) {
+            userRole = emailSnap.docs[0]!.data()['role'];
+            isActive = true;
+          }
+        }
+
+        if (isActive) {
           accessibleProjects.push({
             id: pDoc.id,
             ...pDoc.data(),
-            userRole: memberDoc.data()?.['role'],
+            userRole: userRole || 'petugas',
           });
         }
       }

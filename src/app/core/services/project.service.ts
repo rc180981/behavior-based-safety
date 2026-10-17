@@ -39,11 +39,18 @@ export class ProjectService {
       const list = data.projects || [];
       this.projects.set(list);
 
-      // Auto-select first project if none is active
-      if (list.length > 0 && !this.auth.activeProject()) {
-        const first = list[0];
-        this.auth.setActiveProject(first, first.userRole || 'admin');
-        await this.loadProjectDetails(first.id);
+      // Auto-select project with role resolution
+      if (list.length > 0) {
+        const savedId = localStorage.getItem('bbs_active_project');
+        const found = savedId ? list.find((p: Project) => p.id === savedId) : null;
+        const target = found || list[0]!;
+        
+        // If no active project or active project changed, set it
+        if (!this.auth.activeProject() || this.auth.activeProject()?.id !== target.id) {
+          const role = target.userRole || (this.auth.isSuperAdmin() ? 'admin' : 'petugas');
+          this.auth.setActiveProject(target, role);
+          await this.loadProjectDetails(target.id);
+        }
       }
 
       return list;
