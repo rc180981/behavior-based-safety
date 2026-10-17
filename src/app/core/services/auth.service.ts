@@ -2,6 +2,8 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { 
   signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  updateProfile,
   signInWithPopup, 
   GoogleAuthProvider, 
   signOut, 
@@ -127,6 +129,49 @@ export class AuthService {
     this.isLoading.set(true);
     try {
       await signInWithEmailAndPassword(this.fb.auth, email, pass);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  async registerWithEmail(
+    email: string, 
+    pass: string, 
+    name: string, 
+    department: string = 'HSE Operations'
+  ): Promise<void> {
+    this.isLoading.set(true);
+    try {
+      const cred = await createUserWithEmailAndPassword(this.fb.auth, email, pass);
+      if (cred.user) {
+        try {
+          await updateProfile(cred.user, { displayName: name });
+        } catch (e) {
+          console.warn('Could not update displayName:', e);
+        }
+
+        const userRef = doc(this.fb.db, 'users', cred.user.uid);
+        const newProfile: UserProfile = {
+          uid: cred.user.uid,
+          name: name || email.split('@')[0] || 'Pengguna BBS',
+          email: email,
+          department: department,
+          loginType: 'lokal',
+          active: true,
+          superAdmin: false,
+        };
+
+        try {
+          await setDoc(userRef, {
+            ...newProfile,
+            createdAt: new Date().toISOString(),
+          }, { merge: true });
+        } catch (e) {
+          console.warn('Could not save user profile to Firestore:', e);
+        }
+
+        this.userProfile.set(newProfile);
+      }
     } finally {
       this.isLoading.set(false);
     }
