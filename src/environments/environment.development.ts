@@ -1,11 +1,12 @@
 export const environment = {
   production: false,
   firebase: {
-    apiKey: "AIzaSy_PLACEHOLDER",
+    apiKey: "AIzaSyDGJU93gzmtIEDMtpwSE8dNaorB-JFiek8",
     authDomain: "bbs-genba.firebaseapp.com",
     projectId: "bbs-genba",
-    storageBucket: "bbs-genba.appspot.com",
-    messagingSenderId: "000000000000",
-    appId: "1:000000000000:web:0000000000000000000000"
+    storageBucket: "bbs-genba.firebasestorage.app",
+    messagingSenderId: "119575253917",
+    appId: "1:119575253917:web:f565e2eecb9352e9d95574",
+    measurementId: "G-EZW71L521R"
   }
 };
