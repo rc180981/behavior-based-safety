@@ -31,12 +31,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return sendJson(res, 200, { members });
     }
 
-    // POST: Assign or update member role in project
+    // POST: Assign or update member role in project (and create Auth account if new)
     if (req.method === 'POST') {
       const body = await parseJsonBody<{
         projectId: string;
         targetUid?: string;
         targetEmail?: string;
+        name?: string;
+        password?: string;
+        department?: string;
         role: 'petugas' | 'supervisor' | 'admin';
         active?: boolean;
       }>(req);
@@ -51,34 +54,47 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
 
       let uid = body.targetUid;
-      let email = body.targetEmail || '';
-      let name = '';
+      const email = (body.targetEmail || '').trim().toLowerCase();
+      let name = (body.name || '').trim();
+      const department = (body.department || 'HSE Operations').trim();
 
-      // If email provided without targetUid, resolve from Auth or users collection
-      if (!uid && email) {
+      // If email provided, resolve or create Auth account
+      if (email) {
         try {
           const authUser = await getAuth().getUserByEmail(email);
           uid = authUser.uid;
-          name = authUser.displayName || '';
-        } catch {
-          // If not in Auth yet, find or create user doc
-          const userSnap = await db.collection('users').where('email', '==', email).limit(1).get();
-          if (!userSnap.empty) {
-            uid = userSnap.docs[0]!.id;
-            name = userSnap.docs[0]!.data()['name'] || '';
-          } else {
-            const newDoc = await db.collection('users').add({
-              email,
-              name: email.split('@')[0],
-              loginType: 'lokal',
-              active: true,
-              superAdmin: false,
-              createdAt: new Date().toISOString(),
+          name = name || authUser.displayName || email.split('@')[0];
+
+          // If password provided, update user password and display name
+          if (body.password && body.password.length >= 6) {
+            await getAuth().updateUser(uid, {
+              password: body.password,
+              displayName: name,
             });
-            uid = newDoc.id;
-            name = email.split('@')[0] || '';
           }
+        } catch {
+          // If user does not exist in Auth, create new account in Firebase Auth
+          const newPassword = body.password && body.password.length >= 6 ? body.password : 'Password123!';
+          const createdAuth = await getAuth().createUser({
+            email,
+            password: newPassword,
+            displayName: name || email.split('@')[0],
+          });
+          uid = createdAuth.uid;
+          name = createdAuth.displayName || name || email.split('@')[0];
         }
+
+        // Upsert user profile in Firestore users/{uid}
+        await db.collection('users').doc(uid).set({
+          uid,
+          email,
+          name,
+          department,
+          loginType: 'lokal',
+          active: true,
+          superAdmin: false,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
       }
 
       if (!uid) {
@@ -89,10 +105,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const prevDoc = await memberRef.get();
 
       const memberData = {
+        uid,
         role: body.role,
         active: body.active !== undefined ? body.active : true,
         email,
-        name,
+        name: name || email.split('@')[0],
+        department,
         updatedAt: new Date().toISOString(),
       };
 

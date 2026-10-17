@@ -573,45 +573,85 @@ interface ToastInfo {
           
           <!-- Penugasan Anggota Form (1 col) -->
           <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs h-fit">
-            <h3 class="text-sm font-bold text-navy-950 mb-1">+ Tugaskan Anggota ke Proyek</h3>
-            <p class="text-xs text-slate-500 mb-4">Pengguna yang didaftarkan akan mendapatkan hak akses sesuai perannya pada proyek ini.</p>
+            <h3 class="text-sm font-bold text-navy-950 mb-1">+ Daftarkan & Tugaskan Anggota</h3>
+            <p class="text-xs text-slate-500 mb-4">Daftarkan akun pengguna baru dengan peran yang dibutuhkan, atau tugaskan pengguna yang sudah ada ke proyek ini.</p>
             
             <form (ngSubmit)="assignMember()" class="space-y-3">
               <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Email Pengguna</label>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Lengkap (Account Name)</label>
                 <input 
-                  type="email" 
-                  [(ngModel)]="newMemberEmail" 
-                  name="memberEmail"
-                  placeholder="nama.user@perusahaan.com"
+                  type="text" 
+                  [(ngModel)]="newMemberName" 
+                  name="memberName"
+                  placeholder="Misal: Agus Setiawan"
                   class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:border-navy-600 focus:outline-none"
                   required
                 />
               </div>
 
               <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Peran (Role)</label>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Email Pengguna (ID Akun)</label>
+                <input 
+                  type="email" 
+                  [(ngModel)]="newMemberEmail" 
+                  name="memberEmail"
+                  placeholder="agus.safety@perusahaan.com"
+                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:border-navy-600 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Departemen / Divisi</label>
+                <select 
+                  [(ngModel)]="newMemberDept"
+                  name="memberDept"
+                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold focus:border-navy-600 focus:outline-none bg-white"
+                >
+                  <option value="HSE Operations">HSE Operations (K3L)</option>
+                  <option value="Operasional Lapangan">Operasional Lapangan</option>
+                  <option value="Konstruksi & Sipil">Konstruksi & Sipil</option>
+                  <option value="Mekanikal & Elektrikal">Mekanikal & Elektrikal</option>
+                  <option value="Logistik & Warehouse">Logistik & Gudang</option>
+                  <option value="Manajemen Proyek">Manajemen Proyek</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Kata Sandi Awal</label>
+                <input 
+                  type="text" 
+                  [(ngModel)]="newMemberPassword" 
+                  name="memberPassword"
+                  placeholder="Default: Password123!"
+                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:border-navy-600 focus:outline-none"
+                />
+                <p class="text-[10px] text-slate-400 mt-0.5">Kosongkan bila ingin memakai password default: <code class="text-navy-700 font-bold">Password123!</code></p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Peran (Role yang Dibutuhkan)</label>
                 <select 
                   [(ngModel)]="newMemberRole"
                   name="memberRole"
                   class="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold focus:border-navy-600 focus:outline-none bg-white"
                 >
-                  <option value="petugas">Petugas (Pengisi Observasi Genba)</option>
-                  <option value="supervisor">Supervisor (Verifikator Tindak Lanjut)</option>
-                  <option value="admin">Admin Proyek (Full Kontrol)</option>
+                  <option value="petugas">👷 Petugas (Pengisi Observasi Genba)</option>
+                  <option value="supervisor">🔍 Supervisor (Verifikator Tindak Lanjut)</option>
+                  <option value="admin">⚙️ Admin Proyek (Full Kontrol)</option>
                 </select>
               </div>
 
               <button 
                 type="submit"
                 [disabled]="!newMemberEmail.trim() || isAssigningMember()"
-                class="w-full bg-navy-800 text-white text-xs font-bold py-3 rounded-xl hover:bg-navy-900 disabled:opacity-50 active:scale-95 transition-all shadow-xs flex items-center justify-center gap-2"
+                class="w-full bg-navy-800 text-white text-xs font-bold py-3 rounded-xl hover:bg-navy-900 disabled:opacity-50 active:scale-95 transition-all shadow-xs flex items-center justify-center gap-2 mt-2"
               >
                 @if (isAssigningMember()) {
                   <span>Memproses...</span>
                 } @else {
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-                  <span>Tugaskan ke Proyek</span>
+                  <span>Daftarkan & Tugaskan ke Proyek</span>
                 }
               </button>
             </form>
@@ -920,7 +960,10 @@ export class AdminPanelComponent implements OnInit {
   editingArea = signal<ProjectArea | null>(null);
   editAreaName = '';
 
+  newMemberName = '';
   newMemberEmail = '';
+  newMemberPassword = '';
+  newMemberDept = 'HSE Operations';
   newMemberRole: 'petugas' | 'supervisor' | 'admin' = 'petugas';
 
   showCreateProjectModal = signal<boolean>(false);
@@ -1339,6 +1382,12 @@ export class AdminPanelComponent implements OnInit {
     this.isAssigningMember.set(true);
     const token = await this.auth.getIdToken();
     try {
+      const targetEmail = this.newMemberEmail.trim();
+      const targetName = this.newMemberName.trim();
+      const targetPassword = this.newMemberPassword.trim() || 'Password123!';
+      const targetDept = this.newMemberDept.trim();
+      const targetRole = this.newMemberRole;
+
       const res = await fetch('/api/admin/members', {
         method: 'POST',
         headers: {
@@ -1347,19 +1396,23 @@ export class AdminPanelComponent implements OnInit {
         },
         body: JSON.stringify({
           projectId: proj.id,
-          targetEmail: this.newMemberEmail.trim(),
-          role: this.newMemberRole,
+          targetEmail: targetEmail,
+          name: targetName,
+          password: targetPassword,
+          department: targetDept,
+          role: targetRole,
         }),
       });
 
       if (res.ok) {
-        const assignedEmail = this.newMemberEmail.trim();
         this.newMemberEmail = '';
+        this.newMemberName = '';
+        this.newMemberPassword = '';
         await this.loadMembers();
-        this.showToast(`✅ Pengguna "${assignedEmail}" berhasil ditugaskan!`, 'success');
+        this.showToast(`✅ Akun "${targetEmail}" berhasil didaftarkan sebagai ${targetRole.toUpperCase()}! Sandi: ${targetPassword}`, 'success');
       } else {
         const err = await res.json();
-        this.showToast(err.error || 'Gagal menugaskan anggota', 'error');
+        this.showToast(err.error || 'Gagal mendaftarkan anggota', 'error');
       }
     } catch {
       this.showToast('Gagal menghubungi server', 'error');
