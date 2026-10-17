@@ -50,6 +50,9 @@ import { AuthService } from '../../core/services/auth.service';
               <a routerLink="/temuan-saya" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
                 Temuan Saya
               </a>
+              <a routerLink="/temuan" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
+                Daftar Temuan
+              </a>
               <a routerLink="/dashboard" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
                 Dashboard
               </a>
