@@ -9,16 +9,16 @@ import {
 import { getFirestore } from '../lib/firebase-admin';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const user = await verifyAuthToken(req);
-  if (!user) {
-    return sendJson(res, 401, { error: 'Unauthorized' });
-  }
+  try {
+    const user = await verifyAuthToken(req);
+    if (!user) {
+      return sendJson(res, 401, { error: 'Sesi login tidak valid atau telah berakhir. Silakan login kembali.' });
+    }
 
-  const db = getFirestore();
+    const db = getFirestore();
 
-  // GET: List all projects user has access to, or all if superAdmin
-  if (req.method === 'GET') {
-    try {
+    // GET: List all projects user has access to, or all if superAdmin
+    if (req.method === 'GET') {
       if (user.superAdmin) {
         const snap = await db.collection('projects').get();
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -41,35 +41,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
 
       return sendJson(res, 200, { projects: accessibleProjects });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch projects';
-      return sendJson(res, 500, { error: msg });
-    }
-  }
-
-  // POST: Create new project (Admin only)
-  if (req.method === 'POST') {
-    if (!user.superAdmin) {
-      // Allow if no projects exist yet or user has admin role
-      const anyProjectSnap = await db.collection('projects').limit(1).get();
-      if (!anyProjectSnap.empty) {
-        // Check if user is admin in any existing project
-        const projectsSnap = await db.collection('projects').get();
-        let isAdmin = false;
-        for (const p of projectsSnap.docs) {
-          const m = await p.ref.collection('members').doc(user.uid).get();
-          if (m.exists && m.data()?.['role'] === 'admin' && m.data()?.['active'] === true) {
-            isAdmin = true;
-            break;
-          }
-        }
-        if (!isAdmin) {
-          return sendJson(res, 403, { error: 'Hanya Admin atau SuperAdmin yang dapat membuat proyek baru' });
-        }
-      }
     }
 
-    try {
+    // POST: Create new project
+    if (req.method === 'POST') {
       const body = await parseJsonBody<{
         name: string;
         code: string;
@@ -89,8 +64,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
 
       const newProject = {
-        name: body.name,
-        code: body.code.toUpperCase(),
+        name: body.name.trim(),
+        code: body.code.trim().toUpperCase(),
         status: 'active',
         riskLevel: body.riskLevel || 'tinggi',
         geofence: body.geofence || {
@@ -98,10 +73,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           lng: 106.8456,
           radiusM: 200,
           maxAccuracyM: 50,
-          required: true,
+          required: false,
         },
         dueDays: body.dueDays || { wajib: 3, medium: 7 },
         createdAt: new Date().toISOString(),
+        createdBy: user.uid,
       };
 
       const docRef = await db.collection('projects').add(newProject);
@@ -110,22 +86,18 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       await docRef.collection('members').doc(user.uid).set({
         role: 'admin',
         active: true,
-        name: user.name || 'Admin',
+        name: user.name || user.email?.split('@')[0] || 'Admin',
         email: user.email || '',
+        assignedAt: new Date().toISOString(),
       });
 
       await recordAuditLog(user.uid, 'create_project', `projects/${docRef.id}`, null, newProject);
 
-      return sendJson(res, 201, { id: docRef.id, ...newProject });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create project';
-      return sendJson(res, 500, { error: msg });
+      return sendJson(res, 201, { id: docRef.id, ...newProject, userRole: 'admin' });
     }
-  }
 
-  // PATCH: Update project or geofence settings
-  if (req.method === 'PATCH') {
-    try {
+    // PATCH: Update project or geofence settings
+    if (req.method === 'PATCH') {
       const body = await parseJsonBody<{
         projectId: string;
         geofence?: {
@@ -138,6 +110,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         riskLevel?: 'tinggi' | 'medium';
         dueDays?: { wajib: number; medium: number };
         name?: string;
+        code?: string;
       }>(req);
 
       if (!body.projectId) {
@@ -161,17 +134,19 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (body.dueDays) updateData['dueDays'] = body.dueDays;
       if (body.name) updateData['name'] = body.name;
       if (body.code) updateData['code'] = body.code.toUpperCase();
+      updateData['updatedAt'] = new Date().toISOString();
 
       await projectRef.update(updateData);
 
       await recordAuditLog(user.uid, 'update_project_settings', `projects/${body.projectId}`, prevDoc.data(), updateData);
 
       return sendJson(res, 200, { success: true, message: 'Pengaturan proyek berhasil diperbarui' });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to update project';
-      return sendJson(res, 500, { error: msg });
     }
-  }
 
-  return sendJson(res, 405, { error: 'Method not allowed' });
+    return sendJson(res, 405, { error: 'Method not allowed' });
+  } catch (err: unknown) {
+    console.error('Unhandled error in /api/admin/projects:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    return sendJson(res, 500, { error: msg });
+  }
 }

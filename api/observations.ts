@@ -40,13 +40,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return sendJson(res, 405, { error: 'Method not allowed' });
   }
 
-  // 1. Verify Authentication
-  const user = await verifyAuthToken(req);
-  if (!user) {
-    return sendJson(res, 401, { error: 'Unauthorized: Token tidak valid atau sesi telah berakhir' });
-  }
-
   try {
+    // 1. Verify Authentication
+    const user = await verifyAuthToken(req);
+    if (!user) {
+      return sendJson(res, 401, { error: 'Unauthorized: Token tidak valid atau sesi telah berakhir' });
+    }
+
     const body = await parseJsonBody<ObservationPayload>(req);
     const { projectId, areaId, loc, answers } = body;
 

@@ -24,7 +24,15 @@ export class ProjectService {
       });
 
       if (!res.ok) {
-        throw new Error('Gagal memuat daftar proyek');
+        let msg = 'Gagal memuat daftar proyek';
+        try {
+          const err = await res.json();
+          msg = err.error || msg;
+        } catch {
+          const text = await res.text();
+          msg = text || `HTTP ${res.status}`;
+        }
+        throw new Error(msg);
       }
 
       const data = await res.json();
@@ -90,12 +98,20 @@ export class ProjectService {
     });
 
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal membuat proyek');
+      let errorMsg = 'Gagal membuat proyek';
+      try {
+        const err = await res.json();
+        errorMsg = err.error || errorMsg;
+      } catch {
+        const text = await res.text();
+        errorMsg = text || `HTTP ${res.status}: ${res.statusText}`;
+      }
+      throw new Error(errorMsg);
     }
 
     const created = await res.json();
     await this.loadProjects();
+    this.auth.setActiveProject(created, 'admin');
     return created;
   }
 }

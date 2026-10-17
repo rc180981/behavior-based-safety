@@ -7,27 +7,28 @@ import {
   sendJson 
 } from '../lib/auth-middleware';
 import { getFirestore } from '../lib/firebase-admin';
+import type { Query, DocumentData } from 'firebase-admin/firestore';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const user = await verifyAuthToken(req);
-  if (!user) {
-    return sendJson(res, 401, { error: 'Unauthorized' });
-  }
-
-  const db = getFirestore();
-
-  // GET: List all project items for a given project (and optionally area)
-  if (req.method === 'GET') {
-    const url = new URL(req.url || '', 'http://localhost');
-    const projectId = url.searchParams.get('projectId');
-    const areaId = url.searchParams.get('areaId');
-
-    if (!projectId) {
-      return sendJson(res, 400, { error: 'Parameter projectId wajib disertakan' });
+  try {
+    const user = await verifyAuthToken(req);
+    if (!user) {
+      return sendJson(res, 401, { error: 'Unauthorized: Sesi tidak valid' });
     }
 
-    try {
-      let query: FirebaseFirestore.Query = db
+    const db = getFirestore();
+
+    // GET: List all project items for a given project (and optionally area)
+    if (req.method === 'GET') {
+      const url = new URL(req.url || '', 'http://localhost');
+      const projectId = url.searchParams.get('projectId');
+      const areaId = url.searchParams.get('areaId');
+
+      if (!projectId) {
+        return sendJson(res, 400, { error: 'Parameter projectId wajib disertakan' });
+      }
+
+      let query: Query = db
         .collection('projects')
         .doc(projectId)
         .collection('projectItems')
@@ -42,7 +43,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
       // Fetch master items metadata for denormalization
       const bbsItemsSnap = await db.collection('bbsItems').get();
-      const bbsItemsMap = new Map<string, FirebaseFirestore.DocumentData>();
+      const bbsItemsMap = new Map<string, DocumentData>();
       bbsItemsSnap.forEach((d) => bbsItemsMap.set(d.id, d.data()));
 
       for (const d of snap.docs) {
@@ -59,24 +60,24 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
 
       return sendJson(res, 200, { projectItems });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal memuat item proyek';
-      return sendJson(res, 500, { error: msg });
     }
-  }
 
-  // POST: Add or update project item
-  if (req.method === 'POST') {
-    try {
+    // POST: Add or update project item
+    if (req.method === 'POST') {
       const body = await parseJsonBody<{
         projectId: string;
         id?: string;
-        itemId: string;
-        areaId: string;
-        category: 'wajib' | 'medium';
+        itemId?: string;
+        areaId?: string;
+        category?: 'wajib' | 'medium';
         categoryChangeReason?: string;
         active?: boolean;
+        action?: string;
       }>(req);
+
+      if (!body.projectId) {
+        return sendJson(res, 400, { error: 'projectId wajib diisi' });
+      }
 
       const role = await checkProjectRole(body.projectId, user);
       if (role !== 'admin') {
@@ -86,7 +87,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const col = db.collection('projects').doc(body.projectId).collection('projectItems');
 
       // Special action: Sync master BBS items to project if missing
-      if ((body as { action?: string }).action === 'sync_master') {
+      if (body.action === 'sync_master') {
         let bbsSnap = await db.collection('bbsItems').where('active', '==', true).get();
         if (bbsSnap.empty) {
           // Trigger initial seeding in bbs-items if empty
@@ -215,11 +216,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
         return sendJson(res, 201, { id: docRef.id, ...newItem });
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan item proyek';
-      return sendJson(res, 500, { error: msg });
     }
-  }
 
-  return sendJson(res, 405, { error: 'Method not allowed' });
+    return sendJson(res, 405, { error: 'Method not allowed' });
+  } catch (err: unknown) {
+    console.error('API Error in /api/admin/project-items:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    return sendJson(res, 500, { error: msg });
+  }
 }

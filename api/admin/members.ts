@@ -9,35 +9,30 @@ import {
 import { getFirestore, getAuth } from '../lib/firebase-admin';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const user = await verifyAuthToken(req);
-  if (!user) {
-    return sendJson(res, 401, { error: 'Unauthorized' });
-  }
-
-  const db = getFirestore();
-
-  // GET: List members of a project
-  if (req.method === 'GET') {
-    const url = new URL(req.url || '', 'http://localhost');
-    const projectId = url.searchParams.get('projectId');
-
-    if (!projectId) {
-      return sendJson(res, 400, { error: 'Parameter projectId wajib disertakan' });
+  try {
+    const user = await verifyAuthToken(req);
+    if (!user) {
+      return sendJson(res, 401, { error: 'Unauthorized: Sesi tidak valid' });
     }
 
-    try {
+    const db = getFirestore();
+
+    // GET: List members of a project
+    if (req.method === 'GET') {
+      const url = new URL(req.url || '', 'http://localhost');
+      const projectId = url.searchParams.get('projectId');
+
+      if (!projectId) {
+        return sendJson(res, 400, { error: 'Parameter projectId wajib disertakan' });
+      }
+
       const snap = await db.collection('projects').doc(projectId).collection('members').get();
       const members = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
       return sendJson(res, 200, { members });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal memuat anggota';
-      return sendJson(res, 500, { error: msg });
     }
-  }
 
-  // POST: Assign or update member role in project
-  if (req.method === 'POST') {
-    try {
+    // POST: Assign or update member role in project
+    if (req.method === 'POST') {
       const body = await parseJsonBody<{
         projectId: string;
         targetUid?: string;
@@ -72,7 +67,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             uid = userSnap.docs[0]!.id;
             name = userSnap.docs[0]!.data()['name'] || '';
           } else {
-            // Pre-create placeholder user
             const newDoc = await db.collection('users').add({
               email,
               name: email.split('@')[0],
@@ -113,23 +107,18 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       );
 
       return sendJson(res, 200, { success: true, uid, ...memberData });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal memproses penugasan anggota';
-      return sendJson(res, 500, { error: msg });
-    }
-  }
-
-  // DELETE: Remove member from project
-  if (req.method === 'DELETE') {
-    const url = new URL(req.url || '', 'http://localhost');
-    const projectId = url.searchParams.get('projectId');
-    const targetUid = url.searchParams.get('uid');
-
-    if (!projectId || !targetUid) {
-      return sendJson(res, 400, { error: 'Parameter projectId dan uid wajib disertakan' });
     }
 
-    try {
+    // DELETE: Remove member from project
+    if (req.method === 'DELETE') {
+      const url = new URL(req.url || '', 'http://localhost');
+      const projectId = url.searchParams.get('projectId');
+      const targetUid = url.searchParams.get('uid');
+
+      if (!projectId || !targetUid) {
+        return sendJson(res, 400, { error: 'Parameter projectId dan uid wajib disertakan' });
+      }
+
       const role = await checkProjectRole(projectId, user);
       if (role !== 'admin') {
         return sendJson(res, 403, { error: 'Hanya Admin proyek yang dapat menghapus anggota' });
@@ -169,12 +158,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       );
 
       return sendJson(res, 200, { success: true, message: 'Anggota berhasil dihapus dari proyek' });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal menghapus anggota';
-      return sendJson(res, 500, { error: msg });
     }
+
+    return sendJson(res, 405, { error: 'Method not allowed' });
+  } catch (err: unknown) {
+    console.error('API Error in /api/admin/members:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    return sendJson(res, 500, { error: msg });
   }
-
-  return sendJson(res, 405, { error: 'Method not allowed' });
 }
-

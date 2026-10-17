@@ -9,34 +9,29 @@ import {
 import { getFirestore } from '../lib/firebase-admin';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const user = await verifyAuthToken(req);
-  if (!user) {
-    return sendJson(res, 401, { error: 'Unauthorized' });
-  }
-
-  const db = getFirestore();
-
-  // GET: List areas for a project
-  if (req.method === 'GET') {
-    const url = new URL(req.url || '', 'http://localhost');
-    const projectId = url.searchParams.get('projectId');
-    if (!projectId) {
-      return sendJson(res, 400, { error: 'Parameter projectId wajib disertakan' });
+  try {
+    const user = await verifyAuthToken(req);
+    if (!user) {
+      return sendJson(res, 401, { error: 'Unauthorized' });
     }
 
-    try {
+    const db = getFirestore();
+
+    // GET: List areas for a project
+    if (req.method === 'GET') {
+      const url = new URL(req.url || '', 'http://localhost');
+      const projectId = url.searchParams.get('projectId');
+      if (!projectId) {
+        return sendJson(res, 400, { error: 'Parameter projectId wajib disertakan' });
+      }
+
       const snap = await db.collection('projects').doc(projectId).collection('areas').get();
       const areas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       return sendJson(res, 200, { areas });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal memuat area';
-      return sendJson(res, 500, { error: msg });
     }
-  }
 
-  // POST: Create or Update an area
-  if (req.method === 'POST') {
-    try {
+    // POST: Create or Update an area
+    if (req.method === 'POST') {
       const body = await parseJsonBody<{
         projectId: string;
         name: string;
@@ -92,23 +87,18 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
         return sendJson(res, 201, { id: docRef.id, ...newArea });
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal memproses area';
-      return sendJson(res, 500, { error: msg });
-    }
-  }
-
-  // DELETE: Remove or deactivate an area
-  if (req.method === 'DELETE') {
-    const url = new URL(req.url || '', 'http://localhost');
-    const projectId = url.searchParams.get('projectId');
-    const areaId = url.searchParams.get('areaId');
-
-    if (!projectId || !areaId) {
-      return sendJson(res, 400, { error: 'Parameter projectId dan areaId wajib disertakan' });
     }
 
-    try {
+    // DELETE: Remove or deactivate an area
+    if (req.method === 'DELETE') {
+      const url = new URL(req.url || '', 'http://localhost');
+      const projectId = url.searchParams.get('projectId');
+      const areaId = url.searchParams.get('areaId');
+
+      if (!projectId || !areaId) {
+        return sendJson(res, 400, { error: 'Parameter projectId dan areaId wajib disertakan' });
+      }
+
       const role = await checkProjectRole(projectId, user);
       if (role !== 'admin') {
         return sendJson(res, 403, { error: 'Hanya Admin proyek yang dapat menghapus area' });
@@ -131,12 +121,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       );
 
       return sendJson(res, 200, { success: true, message: 'Area berhasil dihapus' });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal menghapus area';
-      return sendJson(res, 500, { error: msg });
     }
+
+    return sendJson(res, 405, { error: 'Method not allowed' });
+  } catch (err: unknown) {
+    console.error('API Error in /api/admin/areas:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    return sendJson(res, 500, { error: msg });
   }
-
-  return sendJson(res, 405, { error: 'Method not allowed' });
 }
-
