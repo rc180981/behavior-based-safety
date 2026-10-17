@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.superAdmin == true;
+    }
+    
+    function isProjectMember(projectId) {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        (
+          exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.active == true
+        )
+      );
+    }
+    
+    function isProjectAdmin(projectId) {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        (
+          isProjectMember(projectId) &&
+          get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'admin'
+        )
+      );
+    }
+
+    // User profile
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == uid);
+    }
+    
+    // Master BBS items
+    match /bbsItems/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+    
+    // Projects collection and subcollections
+    match /projects/{projectId} {
+      allow read: if isProjectMember(projectId);
+      allow write: if isProjectAdmin(projectId);
+      
+      match /members/{memberId} {
+        allow read: if isProjectMember(projectId);
+        allow write: if isProjectAdmin(projectId);
+      }
+      
+      match /areas/{areaId} {
+        allow read: if isProjectMember(projectId);
+        allow write: if isProjectAdmin(projectId);
+      }
+      
+      match /projectItems/{itemId} {
+        allow read: if isProjectMember(projectId);
+        allow write: if isProjectAdmin(projectId);
+      }
+    }
+    
+    // Observations: Read only for project members.
+    // CRITICAL: Penulisan langsung dari klien DITOLAK (wajib via Vercel Serverless API)
+    match /observations/{obsId} {
+      allow read: if isAuthenticated() && isProjectMember(resource.data.projectId);
+      allow create, update, delete: if false;
+    }
+    
+    // Findings: Read only for project members.
+    // CRITICAL: Penulisan langsung dari klien DITOLAK (wajib via Vercel Serverless API)
+    match /findings/{findingId} {
+      allow read: if isAuthenticated() && isProjectMember(resource.data.projectId);
+      allow create, update, delete: if false;
+    }
+    
+    // Audit logs: Read only for SuperAdmin and Project Admin
+    // CRITICAL: Penulisan langsung dari klien DITOLAK (wajib via Vercel Serverless API)
+    match /auditLogs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+  }
+}

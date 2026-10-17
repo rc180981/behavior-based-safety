@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Touch targets at least 44px for mobile-first safety operations */
+button, input, select, textarea, a.button {
+  min-height: 44px;
+}
