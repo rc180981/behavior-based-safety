@@ -73,6 +73,45 @@ export async function checkProjectRole(
   }
 }
 
+export async function parseJsonBody<T>(req: IncomingMessage): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+    });
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (err) {
+        reject(new Error('Invalid JSON payload'));
+      }
+    });
+    req.on('error', (err) => reject(err));
+  });
+}
+
+export async function recordAuditLog(
+  actorUid: string,
+  action: string,
+  targetPath: string,
+  before: unknown,
+  after: unknown
+): Promise<void> {
+  try {
+    const db = getFirestore();
+    await db.collection('auditLogs').add({
+      actorUid,
+      action,
+      targetPath,
+      before: before ?? null,
+      after: after ?? null,
+      at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Failed to write audit log:', err);
+  }
+}
+
 export function sendJson(res: ServerResponse, statusCode: number, data: unknown): void {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json');

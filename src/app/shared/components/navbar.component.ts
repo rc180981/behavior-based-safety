@@ -44,6 +44,9 @@ import { AuthService } from '../../core/services/auth.service';
               <a routerLink="/observasi/baru" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
                 Observasi Baru
               </a>
+              <a routerLink="/observasi/riwayat" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
+                Riwayat
+              </a>
               <a routerLink="/temuan-saya" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
                 Temuan Saya
               </a>
