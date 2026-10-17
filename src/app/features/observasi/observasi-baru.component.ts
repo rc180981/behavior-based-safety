@@ -7,7 +7,9 @@ import { ProjectService } from '../../core/services/project.service';
 import { GeolocationService } from '../../core/services/geolocation.service';
 import { StorageService } from '../../core/services/storage.service';
 import { ObservationService } from '../../core/services/observation.service';
+import { OfflineSyncService } from '../../core/services/offline-sync.service';
 import { ProjectItem, FindingRisk } from '../../core/models/bbs.models';
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface AnswerState {
   projectItemId: string;
@@ -101,11 +103,64 @@ interface AnswerState {
         </button>
       </div>
 
-      <!-- Area Selection -->
+      <!-- Offline Status Banner -->
+      @if (!offlineSync.isOnline() || offlineSync.pendingCount() > 0) {
+        <div class="bg-amber-600 text-white rounded-2xl p-3 mb-6 shadow-sm flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
+            @if (!offlineSync.isOnline()) {
+              <span>Mode Offline: Observasi akan disimpan lokal & disinkronkan saat online.</span>
+            } @else {
+              <span>Ada {{ offlineSync.pendingCount() }} observasi tersimpan lokal.</span>
+            }
+          </div>
+          @if (offlineSync.isOnline() && offlineSync.pendingCount() > 0) {
+            <button 
+              (click)="offlineSync.autoSync()"
+              [disabled]="offlineSync.isSyncing()"
+              class="bg-white text-amber-950 font-extrabold px-3 py-1.5 rounded-xl text-[11px] shadow-xs"
+            >
+              Sinkronkan Sekarang
+            </button>
+          }
+        </div>
+      }
+
+      <!-- Area Selection & QR Check-in -->
       <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm mb-6">
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-          Area Proyek
-        </label>
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+            Area Proyek
+          </label>
+          <button 
+            type="button" 
+            (click)="toggleQrScanner()"
+            class="text-[11px] font-bold text-navy-800 bg-navy-50 hover:bg-navy-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+          >
+            📷 Scan QR Area
+          </button>
+        </div>
+
+        @if (isScanningQr()) {
+          <div class="mb-4 p-4 bg-slate-900 rounded-2xl text-center shadow-lg">
+            <div id="qr-reader" class="w-full max-w-xs mx-auto rounded-xl overflow-hidden bg-black min-h-[220px]"></div>
+            <p class="text-[11px] text-slate-300 mt-2 font-medium">Arahkan kamera ke QR Code Area untuk verifikasi fisik lokasi.</p>
+            <button 
+              type="button" 
+              (click)="stopQrScanner()"
+              class="mt-2 text-xs text-red-400 hover:text-red-300 underline font-semibold"
+            >
+              Batal Scan
+            </button>
+          </div>
+        }
+
+        @if (qrVerifiedAreaName()) {
+          <div class="mb-3 p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs rounded-xl flex items-center gap-2 font-bold">
+            <span>✓ Terverifikasi QR Fisik: {{ qrVerifiedAreaName() }}</span>
+          </div>
+        }
+
         <select 
           [(ngModel)]="selectedAreaId"
           (change)="onAreaChange()"
@@ -412,6 +467,7 @@ export class ObservasiBaruComponent implements OnInit {
   geo = inject(GeolocationService);
   storageService = inject(StorageService);
   observationService = inject(ObservationService);
+  offlineSync = inject(OfflineSyncService);
   router = inject(Router);
 
   Math = Math;
@@ -419,6 +475,10 @@ export class ObservasiBaruComponent implements OnInit {
   answers: AnswerState[] = [];
   zoomedImage = signal<string | null>(null);
   submitErrorMessage = signal<string | null>(null);
+
+  isScanningQr = signal<boolean>(false);
+  qrVerifiedAreaName = signal<string | null>(null);
+  private html5QrCode: Html5Qrcode | null = null;
 
   currentDateStr = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',
@@ -660,8 +720,7 @@ export class ObservasiBaruComponent implements OnInit {
     const projId = this.auth.activeProject()?.id || 'bbs-proj-1';
     const areaId = this.selectedAreaId || 'general-area';
 
-    try {
-      const payloadAnswers = this.answers
+    const payloadAnswers = this.answers
         .filter((a) => a.result !== null)
         .map((a) => ({
           projectItemId: a.projectItemId,
@@ -672,21 +731,104 @@ export class ObservasiBaruComponent implements OnInit {
           finding: a.result === 'improvement' ? a.finding : undefined,
         }));
 
-      await this.observationService.submitObservation({
-        projectId: projId,
-        areaId,
-        loc: {
-          lat: pos.lat,
-          lng: pos.lng,
-          accuracyM: pos.accuracyM,
-        },
-        answers: payloadAnswers,
-      });
+    const payload = {
+      projectId: projId,
+      areaId,
+      loc: {
+        lat: pos.lat,
+        lng: pos.lng,
+        accuracyM: pos.accuracyM,
+      },
+      answers: payloadAnswers,
+    };
 
+    // If device is currently offline, store in offline queue
+    if (!this.offlineSync.isOnline()) {
+      this.offlineSync.enqueueObservation(payload);
+      alert('📡 Mode Offline: Observasi telah disimpan ke antrean perangkat lokal Anda. Data akan otomatis dikirim ke server saat koneksi internet kembali pulih.');
+      this.router.navigate(['/observasi/riwayat']);
+      return;
+    }
+
+    try {
+      await this.observationService.submitObservation(payload);
       alert('✅ Observasi BBS berhasil dikirim dan diverifikasi!');
       this.router.navigate(['/observasi/riwayat']);
     } catch (err: unknown) {
-      this.submitErrorMessage.set(err instanceof Error ? err.message : String(err));
+      // Offer saving offline if connection fails
+      if (confirm(`Gagal mengirim ke server: ${err instanceof Error ? err.message : String(err)}\n\nApakah Anda ingin menyimpan observasi ini ke antrean lokal offline terlebih dahulu?`)) {
+        this.offlineSync.enqueueObservation(payload);
+        this.router.navigate(['/observasi/riwayat']);
+      } else {
+        this.submitErrorMessage.set(err instanceof Error ? err.message : String(err));
+      }
     }
   }
+
+  async toggleQrScanner(): Promise<void> {
+    if (this.isScanningQr()) {
+      await this.stopQrScanner();
+    } else {
+      await this.startQrScanner();
+    }
+  }
+
+  async startQrScanner(): Promise<void> {
+    this.isScanningQr.set(true);
+    setTimeout(async () => {
+      try {
+        this.html5QrCode = new Html5Qrcode('qr-reader');
+        await this.html5QrCode.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          (decodedText) => {
+            this.handleQrScanSuccess(decodedText);
+          },
+          () => {
+            // Scan frame ignored
+          }
+        );
+      } catch (err) {
+        console.warn('QR camera error:', err);
+        alert('Tidak dapat mengakses kamera untuk scan QR.');
+        this.isScanningQr.set(false);
+      }
+    }, 100);
+  }
+
+  async stopQrScanner(): Promise<void> {
+    if (this.html5QrCode) {
+      try {
+        await this.html5QrCode.stop();
+        this.html5QrCode.clear();
+      } catch {
+        // Ignored
+      }
+      this.html5QrCode = null;
+    }
+    this.isScanningQr.set(false);
+  }
+
+  handleQrScanSuccess(qrText: string): void {
+    // Expected format: BBS-AREA:{projectId}:{areaId}
+    if (qrText.startsWith('BBS-AREA:')) {
+      const parts = qrText.split(':');
+      const scannedAreaId = parts[2];
+
+      const matchedArea = this.projectService.activeAreas().find((a) => a.id === scannedAreaId);
+      if (matchedArea) {
+        this.selectedAreaId = matchedArea.id;
+        this.qrVerifiedAreaName.set(matchedArea.name);
+        alert(`✓ Berhasil memindai QR! Area ${matchedArea.name} terverifikasi secara fisik.`);
+      } else {
+        this.selectedAreaId = scannedAreaId || '';
+        this.qrVerifiedAreaName.set('Area ID: ' + scannedAreaId);
+        alert('✓ Area berhasil diverifikasi dari QR Code.');
+      }
+    } else {
+      alert(`QR Code dipindai: ${qrText}`);
+    }
+    this.stopQrScanner();
+  }
 }
+

@@ -5,6 +5,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ProjectService } from '../../core/services/project.service';
 import { GeolocationService } from '../../core/services/geolocation.service';
 import { Project, ProjectArea, ProjectItem, ProjectMember } from '../../core/models/bbs.models';
+import * as QRCode from 'qrcode';
 
 @Component({
   selector: 'app-admin-panel',
@@ -196,9 +197,18 @@ import { Project, ProjectArea, ProjectItem, ProjectMember } from '../../core/mod
                   <h4 class="text-xs font-bold text-slate-900">{{ area.name }}</h4>
                   <span class="text-[10px] text-slate-400">ID: {{ area.id }}</span>
                 </div>
-                <span class="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
-                  Aktif
-                </span>
+                <div class="flex items-center gap-3">
+                  <button 
+                    (click)="generateAreaQr(area)"
+                    class="text-[11px] font-bold text-navy-800 bg-navy-50 hover:bg-navy-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+                    Cetak QR Area
+                  </button>
+                  <span class="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
+                    Aktif
+                  </span>
+                </div>
               </div>
             }
           </div>
@@ -374,6 +384,34 @@ import { Project, ProjectArea, ProjectItem, ProjectMember } from '../../core/mod
         </div>
       }
 
+      <!-- QR Area Modal -->
+      @if (qrModalData(); as qrd) {
+        <div class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
+            <span class="text-[10px] font-extrabold text-navy-800 uppercase tracking-widest block mb-1">QR Code Lokasi Area</span>
+            <h3 class="text-base font-bold text-navy-950 mb-1">{{ qrd.areaName }}</h3>
+            <p class="text-[11px] text-slate-400 mb-4">Cetak dan tempel di pintu masuk area untuk scan verifikasi petugas.</p>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 inline-block mb-4">
+              <img [src]="qrd.dataUrl" alt="QR Code" class="w-48 h-48 mx-auto" />
+            </div>
+            <div class="flex justify-center gap-2">
+              <button 
+                (click)="qrModalData.set(null)"
+                class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                Tutup
+              </button>
+              <button 
+                (click)="printQrCode()"
+                class="px-4 py-2 text-xs font-bold text-white bg-navy-800 hover:bg-navy-900 rounded-xl shadow-xs"
+              >
+                Cetak / Print
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
     </div>
   `
 })
@@ -403,6 +441,22 @@ export class AdminPanelComponent implements OnInit {
 
   downgradeModalItem = signal<ProjectItem | null>(null);
   downgradeReason = '';
+  qrModalData = signal<{ areaName: string; dataUrl: string } | null>(null);
+
+  async generateAreaQr(area: ProjectArea): Promise<void> {
+    const proj = this.auth.activeProject();
+    const qrContent = `BBS-AREA:${proj?.id || 'PROJ'}:${area.id}`;
+    try {
+      const dataUrl = await QRCode.toDataURL(qrContent, { width: 300, margin: 2 });
+      this.qrModalData.set({ areaName: area.name, dataUrl });
+    } catch {
+      alert('Gagal membuat QR Code');
+    }
+  }
+
+  printQrCode(): void {
+    window.print();
+  }
 
   async ngOnInit(): Promise<void> {
     await this.projectService.loadProjects();

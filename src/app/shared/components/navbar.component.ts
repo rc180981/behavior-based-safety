@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { OfflineSyncService } from '../../core/services/offline-sync.service';
 
 @Component({
   selector: 'app-navbar',
@@ -56,10 +57,20 @@ import { AuthService } from '../../core/services/auth.service';
               <a routerLink="/dashboard" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
                 Dashboard
               </a>
+              <a routerLink="/dashboard/lintas-proyek" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
+                Lintas Proyek
+              </a>
               <a routerLink="/admin" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-lg text-slate-300 hover:text-white transition-colors">
                 Admin
               </a>
             </nav>
+
+            @if (!offlineSync.isOnline()) {
+              <div class="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                OFFLINE
+              </div>
+            }
 
             <!-- User Menu & Logout -->
             <button
@@ -130,4 +141,5 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class NavbarComponent {
   auth = inject(AuthService);
+  offlineSync = inject(OfflineSyncService);
 }
