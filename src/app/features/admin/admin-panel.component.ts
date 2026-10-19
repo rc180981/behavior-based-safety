@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ProjectService } from '../../core/services/project.service';
 import { GeolocationService } from '../../core/services/geolocation.service';
@@ -15,7 +16,7 @@ interface ToastInfo {
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28">
       
@@ -41,19 +42,30 @@ interface ToastInfo {
             <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-navy-100 text-navy-900 text-sm font-bold">⚙️</span>
             <h1 class="text-xl sm:text-2xl font-bold text-navy-950">Panel Administrasi HSE</h1>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Kelola perimeter geofence, daftar area kerja, kategori kepatuhan item HSE, dan hak akses pengguna.</p>
+          <p class="text-xs text-slate-500 mt-1">Konfigurasi operasional proyek: Area & QR Titik Genba, Standar Item Kepatuhan HSE, dan Parameter Geofence.</p>
         </div>
 
-        <button 
-          (click)="openCreateProjectModal()"
-          class="inline-flex items-center justify-center gap-2 bg-navy-800 text-white text-xs font-bold px-4 py-3 rounded-xl hover:bg-navy-900 shadow-sm active:scale-95 transition-transform"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-          <span>+ Buat Proyek Baru</span>
-        </button>
+        <div class="flex items-center gap-2 flex-wrap">
+          <a 
+            routerLink="/admin/users"
+            class="inline-flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-bold px-4 py-3 rounded-xl shadow-xs active:scale-95 transition-all"
+            title="Kelola Akun, Peran RBAC, dan Hak Akses Pengguna"
+          >
+            <span>👥</span>
+            <span>Kelola Pengguna (RBAC) ➔</span>
+          </a>
+
+          <button 
+            (click)="openCreateProjectModal()"
+            class="inline-flex items-center justify-center gap-2 bg-navy-800 text-white text-xs font-bold px-4 py-3 rounded-xl hover:bg-navy-900 shadow-sm active:scale-95 transition-transform"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            <span>+ Buat Proyek Baru</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Project Selector & Summary Card -->
+      <!-- Project Selector & Summary Card (Tahap 0) -->
       <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs mb-6">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
@@ -93,32 +105,29 @@ interface ToastInfo {
               <span class="text-slate-500">Item HSE:</span>
               <span class="font-extrabold text-navy-900">{{ projectService.activeItems().length }}</span>
             </div>
-            <div class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs">
-              <span class="text-slate-500">Anggota:</span>
+            <a 
+              routerLink="/admin/users"
+              title="Kelola Pengguna di Halaman Terpisah"
+              class="bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs transition-colors"
+            >
+              <span class="text-slate-500">Pengguna (RBAC):</span>
               <span class="font-extrabold text-navy-900">{{ members().length }}</span>
-            </div>
+              <span class="text-[10px] text-indigo-600 font-bold">↗</span>
+            </a>
           </div>
 
         </div>
       </div>
 
-      <!-- Navigation Tabs (Pills style) -->
+      <!-- Navigation Tabs (Pills style) - Alur Operasional: Tahap 2 -> Tahap 3 -> Tahap 1 -->
       <div class="flex gap-2 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200 mb-6 overflow-x-auto text-xs font-bold no-scrollbar">
-        <button 
-          (click)="activeTab = 'geofence'"
-          [ngClass]="activeTab === 'geofence' ? 'bg-white text-navy-950 shadow-xs' : 'text-slate-600 hover:text-navy-900'"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap"
-        >
-          <span>📍</span>
-          <span>Geofence & Parameter</span>
-        </button>
         <button 
           (click)="activeTab = 'areas'"
           [ngClass]="activeTab === 'areas' ? 'bg-white text-navy-950 shadow-xs' : 'text-slate-600 hover:text-navy-900'"
           class="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap"
         >
           <span>🏷️</span>
-          <span>Area Proyek & QR ({{ projectService.activeAreas().length }})</span>
+          <span>1. Area Proyek & QR Titik Genba ({{ projectService.activeAreas().length }})</span>
         </button>
         <button 
           (click)="activeTab = 'items'"
@@ -126,20 +135,224 @@ interface ToastInfo {
           class="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap"
         >
           <span>📋</span>
-          <span>Item HSE & Kategori ({{ projectService.activeItems().length }})</span>
+          <span>2. Item HSE & Standar Kategori ({{ projectService.activeItems().length }})</span>
         </button>
         <button 
-          (click)="activeTab = 'members'"
-          [ngClass]="activeTab === 'members' ? 'bg-white text-navy-950 shadow-xs' : 'text-slate-600 hover:text-navy-900'"
+          (click)="activeTab = 'geofence'"
+          [ngClass]="activeTab === 'geofence' ? 'bg-white text-navy-950 shadow-xs' : 'text-slate-600 hover:text-navy-900'"
           class="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap"
         >
-          <span>👥</span>
-          <span>Anggota & Peran ({{ members().length }})</span>
+          <span>📍</span>
+          <span>3. Geofence & Parameter Proyek</span>
         </button>
       </div>
 
       <!-- ========================================== -->
-      <!-- TAB 1: GEOFENCE & PARAMETER PROYEK        -->
+      <!-- TAB 1: AREA PROYEK & QR CODE (TAHAP 2)   -->
+      <!-- ========================================== -->
+      @if (activeTab === 'areas') {
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Tambah Area Form (1 col) -->
+          <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs h-fit">
+            <h3 class="text-sm font-bold text-navy-950 mb-1">+ Tambah Area Proyek Baru</h3>
+            <p class="text-xs text-slate-500 mb-4">Area digunakan untuk mengelompokkan zona inspeksi dan generate stiker QR Code.</p>
+            
+            <form (ngSubmit)="addArea()" class="space-y-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Area / Zona</label>
+                <input 
+                  type="text" 
+                  [(ngModel)]="newAreaName" 
+                  name="areaName"
+                  placeholder="Misal: Warehouse A, Bengkel Fabrikasi, Area Tangki"
+                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:border-navy-600 focus:outline-none"
+                  required
+                />
+              </div>
+              <button 
+                type="submit"
+                [disabled]="!newAreaName.trim() || isAddingArea()"
+                class="w-full bg-navy-800 text-white text-xs font-bold py-3 rounded-xl hover:bg-navy-900 disabled:opacity-50 active:scale-95 transition-all shadow-xs flex items-center justify-center gap-2"
+              >
+                @if (isAddingArea()) {
+                  <span>Menyimpan...</span>
+                } @else {
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                  <span>Simpan Area Baru</span>
+                }
+              </button>
+            </form>
+          </div>
+
+          <!-- Daftar Area (2 cols) -->
+          <div class="lg:col-span-2 space-y-3">
+            <div class="flex items-center justify-between pb-1">
+              <span class="text-xs font-bold text-slate-700">Daftar Area Kerja ({{ projectService.activeAreas().length }})</span>
+              <span class="text-[11px] text-slate-400">Pindai QR saat observasi untuk verifikasi lokasi</span>
+            </div>
+
+            @if (projectService.activeAreas().length === 0) {
+              <div class="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center">
+                <span class="text-3xl block mb-2">🏷️</span>
+                <h4 class="text-xs font-bold text-slate-700">Belum ada area kerja di proyek ini</h4>
+                <p class="text-[11px] text-slate-400 mt-1">Tambahkan area melalui form di samping untuk mulai memetakan zona genba.</p>
+              </div>
+            }
+
+            @for (area of projectService.activeAreas(); track area.id) {
+              <div class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="w-9 h-9 rounded-xl bg-navy-50 text-navy-800 flex items-center justify-center font-bold text-sm flex-shrink-0 mt-0.5">
+                    📍
+                  </div>
+                  <div>
+                    <h4 class="text-xs sm:text-sm font-bold text-slate-900">{{ area.name }}</h4>
+                    <span class="text-[10px] text-slate-400 font-mono">ID: {{ area.id }}</span>
+                  </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex items-center gap-2 self-end sm:self-center flex-wrap">
+                  <button 
+                    (click)="generateAreaQr(area)"
+                    class="text-xs font-bold text-navy-800 bg-navy-50 hover:bg-navy-100 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors active:scale-95 border border-navy-100"
+                    title="Cetak Stiker QR Code untuk Area ini"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+                    <span>Cetak QR</span>
+                  </button>
+
+                  <button 
+                    (click)="openEditAreaModal(area)"
+                    class="text-xs font-semibold text-slate-600 hover:text-navy-900 hover:bg-slate-100 px-2.5 py-2 rounded-xl transition-colors border border-slate-200"
+                    title="Ubah Nama Area"
+                  >
+                    ✏️ Edit
+                  </button>
+
+                  <button 
+                    (click)="confirmDeleteArea(area)"
+                    class="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-2.5 py-2 rounded-xl transition-colors border border-rose-100"
+                    title="Hapus Area"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+
+        </div>
+      }
+
+      <!-- ========================================== -->
+      <!-- TAB 2: ITEM HSE & KATEGORI (TAHAP 3)     -->
+      <!-- ========================================== -->
+      @if (activeTab === 'items') {
+        <div class="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs">
+          
+          <!-- Filter & Action Header -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+            <div>
+              <h3 class="text-base font-bold text-navy-950">Item Perilaku & Kategori Kepatuhan</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Kategori <strong>Wajib</strong> mengunci tombol kirim di lapangan sebelum dinilai. Penurunan ke <strong>Medium</strong> wajib menyertakan alasan HSE.</p>
+            </div>
+
+            <!-- Sync Master Button -->
+            <button 
+              (click)="syncMasterItems()"
+              [disabled]="isSyncingItems()"
+              class="inline-flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-navy-950 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-200 transition-colors disabled:opacity-50"
+            >
+              @if (isSyncingItems()) {
+                <span>Menyinkronkan...</span>
+              } @else {
+                <span>🔄 Sinkronkan Master BBS</span>
+              }
+            </button>
+          </div>
+
+          <!-- Search & Filter Controls -->
+          <div class="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="relative w-full sm:w-80">
+              <input 
+                type="text" 
+                [(ngModel)]="itemSearchQuery" 
+                placeholder="Cari item perilaku..." 
+                class="w-full rounded-xl border border-slate-300 pl-8 pr-3 py-2 text-xs focus:border-navy-600 focus:outline-none"
+              />
+              <span class="absolute left-2.5 top-2.5 text-slate-400 text-xs">🔍</span>
+            </div>
+
+            <div class="flex items-center gap-1.5 self-start sm:self-auto">
+              <button 
+                (click)="itemCategoryFilter = 'all'"
+                [ngClass]="itemCategoryFilter === 'all' ? 'bg-navy-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                class="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Semua ({{ projectService.activeItems().length }})
+              </button>
+              <button 
+                (click)="itemCategoryFilter = 'wajib'"
+                [ngClass]="itemCategoryFilter === 'wajib' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'"
+                class="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Wajib ({{ countItemsByCategory('wajib') }})
+              </button>
+              <button 
+                (click)="itemCategoryFilter = 'medium'"
+                [ngClass]="itemCategoryFilter === 'medium' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-800 hover:bg-amber-100'"
+                class="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Medium ({{ countItemsByCategory('medium') }})
+              </button>
+            </div>
+          </div>
+
+          <!-- Item List -->
+          <div class="divide-y divide-slate-100">
+            @if (filteredItems().length === 0) {
+              <div class="py-12 text-center text-slate-400 text-xs">
+                Tidak ada item perilaku yang sesuai kriteria pencarian / filter.
+              </div>
+            }
+
+            @for (item of filteredItems(); track item.id) {
+              <div class="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="max-w-2xl">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <span 
+                      [ngClass]="item.category === 'wajib' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'"
+                      class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase border tracking-wider"
+                    >
+                      {{ item.category }}
+                    </span>
+                    <h4 class="text-xs sm:text-sm font-bold text-slate-900">{{ item.title }}</h4>
+                  </div>
+                  <p class="text-xs text-slate-500 leading-relaxed">{{ item.description }}</p>
+                </div>
+
+                <div class="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                  <label class="text-[11px] text-slate-400 font-semibold hidden sm:inline">Kategori:</label>
+                  <select 
+                    [ngModel]="item.category"
+                    (ngModelChange)="onCategoryChange(item, $event)"
+                    class="rounded-xl border border-slate-300 py-1.5 px-3 text-xs font-bold focus:border-navy-600 focus:outline-none bg-slate-50 cursor-pointer shadow-xs"
+                  >
+                    <option value="wajib">🔴 Wajib (Ketat)</option>
+                    <option value="medium">🟡 Medium (Standar)</option>
+                  </select>
+                </div>
+              </div>
+            }
+          </div>
+
+        </div>
+      }
+
+      <!-- ========================================== -->
+      <!-- TAB 3: GEOFENCE & PARAMETER PROYEK (TAHAP 1) -->
       <!-- ========================================== -->
       @if (activeTab === 'geofence') {
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -362,364 +575,6 @@ interface ToastInfo {
       }
 
       <!-- ========================================== -->
-      <!-- TAB 2: AREA PROYEK & QR CODE             -->
-      <!-- ========================================== -->
-      @if (activeTab === 'areas') {
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          <!-- Tambah Area Form (1 col) -->
-          <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs h-fit">
-            <h3 class="text-sm font-bold text-navy-950 mb-1">+ Tambah Area Proyek Baru</h3>
-            <p class="text-xs text-slate-500 mb-4">Area digunakan untuk mengelompokkan zona inspeksi dan generate stiker QR Code.</p>
-            
-            <form (ngSubmit)="addArea()" class="space-y-3">
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Area / Zona</label>
-                <input 
-                  type="text" 
-                  [(ngModel)]="newAreaName" 
-                  name="areaName"
-                  placeholder="Misal: Warehouse A, Bengkel Fabrikasi, Area Tangki"
-                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:border-navy-600 focus:outline-none"
-                  required
-                />
-              </div>
-              <button 
-                type="submit"
-                [disabled]="!newAreaName.trim() || isAddingArea()"
-                class="w-full bg-navy-800 text-white text-xs font-bold py-3 rounded-xl hover:bg-navy-900 disabled:opacity-50 active:scale-95 transition-all shadow-xs flex items-center justify-center gap-2"
-              >
-                @if (isAddingArea()) {
-                  <span>Menyimpan...</span>
-                } @else {
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                  <span>Simpan Area Baru</span>
-                }
-              </button>
-            </form>
-          </div>
-
-          <!-- Daftar Area (2 cols) -->
-          <div class="lg:col-span-2 space-y-3">
-            <div class="flex items-center justify-between pb-1">
-              <span class="text-xs font-bold text-slate-700">Daftar Area Kerja ({{ projectService.activeAreas().length }})</span>
-              <span class="text-[11px] text-slate-400">Pindai QR saat observasi untuk verifikasi lokasi</span>
-            </div>
-
-            @if (projectService.activeAreas().length === 0) {
-              <div class="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center">
-                <span class="text-3xl block mb-2">🏷️</span>
-                <h4 class="text-xs font-bold text-slate-700">Belum ada area kerja di proyek ini</h4>
-                <p class="text-[11px] text-slate-400 mt-1">Tambahkan area melalui form di samping untuk mulai memetakan zona genba.</p>
-              </div>
-            }
-
-            @for (area of projectService.activeAreas(); track area.id) {
-              <div class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition-colors">
-                <div class="flex items-start gap-3">
-                  <div class="w-9 h-9 rounded-xl bg-navy-50 text-navy-800 flex items-center justify-center font-bold text-sm flex-shrink-0 mt-0.5">
-                    📍
-                  </div>
-                  <div>
-                    <h4 class="text-xs sm:text-sm font-bold text-slate-900">{{ area.name }}</h4>
-                    <span class="text-[10px] text-slate-400 font-mono">ID: {{ area.id }}</span>
-                  </div>
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="flex items-center gap-2 self-end sm:self-center flex-wrap">
-                  <button 
-                    (click)="generateAreaQr(area)"
-                    class="text-xs font-bold text-navy-800 bg-navy-50 hover:bg-navy-100 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors active:scale-95 border border-navy-100"
-                    title="Cetak Stiker QR Code untuk Area ini"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
-                    <span>Cetak QR</span>
-                  </button>
-
-                  <button 
-                    (click)="openEditAreaModal(area)"
-                    class="text-xs font-semibold text-slate-600 hover:text-navy-900 hover:bg-slate-100 px-2.5 py-2 rounded-xl transition-colors border border-slate-200"
-                    title="Ubah Nama Area"
-                  >
-                    ✏️ Edit
-                  </button>
-
-                  <button 
-                    (click)="confirmDeleteArea(area)"
-                    class="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-2.5 py-2 rounded-xl transition-colors border border-rose-100"
-                    title="Hapus Area"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            }
-          </div>
-
-        </div>
-      }
-
-      <!-- ========================================== -->
-      <!-- TAB 3: ITEM HSE & KATEGORI                -->
-      <!-- ========================================== -->
-      @if (activeTab === 'items') {
-        <div class="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs">
-          
-          <!-- Filter & Action Header -->
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
-            <div>
-              <h3 class="text-base font-bold text-navy-950">Item Perilaku & Kategori Kepatuhan</h3>
-              <p class="text-xs text-slate-500 mt-0.5">Kategori <strong>Wajib</strong> mengunci tombol kirim di lapangan sebelum dinilai. Penurunan ke <strong>Medium</strong> wajib menyertakan alasan HSE.</p>
-            </div>
-
-            <!-- Sync Master Button -->
-            <button 
-              (click)="syncMasterItems()"
-              [disabled]="isSyncingItems()"
-              class="inline-flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-navy-950 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-200 transition-colors disabled:opacity-50"
-            >
-              @if (isSyncingItems()) {
-                <span>Menyinkronkan...</span>
-              } @else {
-                <span>🔄 Sinkronkan Master BBS</span>
-              }
-            </button>
-          </div>
-
-          <!-- Search & Filter Controls -->
-          <div class="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div class="relative w-full sm:w-80">
-              <input 
-                type="text" 
-                [(ngModel)]="itemSearchQuery" 
-                placeholder="Cari item perilaku..." 
-                class="w-full rounded-xl border border-slate-300 pl-8 pr-3 py-2 text-xs focus:border-navy-600 focus:outline-none"
-              />
-              <span class="absolute left-2.5 top-2.5 text-slate-400 text-xs">🔍</span>
-            </div>
-
-            <div class="flex items-center gap-1.5 self-start sm:self-auto">
-              <button 
-                (click)="itemCategoryFilter = 'all'"
-                [ngClass]="itemCategoryFilter === 'all' ? 'bg-navy-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                class="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Semua ({{ projectService.activeItems().length }})
-              </button>
-              <button 
-                (click)="itemCategoryFilter = 'wajib'"
-                [ngClass]="itemCategoryFilter === 'wajib' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'"
-                class="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Wajib ({{ countItemsByCategory('wajib') }})
-              </button>
-              <button 
-                (click)="itemCategoryFilter = 'medium'"
-                [ngClass]="itemCategoryFilter === 'medium' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-800 hover:bg-amber-100'"
-                class="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Medium ({{ countItemsByCategory('medium') }})
-              </button>
-            </div>
-          </div>
-
-          <!-- Item List -->
-          <div class="divide-y divide-slate-100">
-            @if (filteredItems().length === 0) {
-              <div class="py-12 text-center text-slate-400 text-xs">
-                Tidak ada item perilaku yang sesuai kriteria pencarian / filter.
-              </div>
-            }
-
-            @for (item of filteredItems(); track item.id) {
-              <div class="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="max-w-2xl">
-                  <div class="flex items-center gap-2 mb-1.5">
-                    <span 
-                      [ngClass]="item.category === 'wajib' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'"
-                      class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase border tracking-wider"
-                    >
-                      {{ item.category }}
-                    </span>
-                    <h4 class="text-xs sm:text-sm font-bold text-slate-900">{{ item.title }}</h4>
-                  </div>
-                  <p class="text-xs text-slate-500 leading-relaxed">{{ item.description }}</p>
-                </div>
-
-                <div class="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                  <label class="text-[11px] text-slate-400 font-semibold hidden sm:inline">Kategori:</label>
-                  <select 
-                    [ngModel]="item.category"
-                    (ngModelChange)="onCategoryChange(item, $event)"
-                    class="rounded-xl border border-slate-300 py-1.5 px-3 text-xs font-bold focus:border-navy-600 focus:outline-none bg-slate-50 cursor-pointer shadow-xs"
-                  >
-                    <option value="wajib">🔴 Wajib (Ketat)</option>
-                    <option value="medium">🟡 Medium (Standar)</option>
-                  </select>
-                </div>
-              </div>
-            }
-          </div>
-
-        </div>
-      }
-
-      <!-- ========================================== -->
-      <!-- TAB 4: ANGGOTA & ROLE                    -->
-      <!-- ========================================== -->
-      @if (activeTab === 'members') {
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          <!-- Penugasan Anggota Form (1 col) -->
-          <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs h-fit">
-            <h3 class="text-sm font-bold text-navy-950 mb-1">+ Daftarkan & Tugaskan Anggota</h3>
-            <p class="text-xs text-slate-500 mb-4">Daftarkan akun pengguna baru dengan peran yang dibutuhkan, atau tugaskan pengguna yang sudah ada ke proyek ini.</p>
-            
-            <form (ngSubmit)="assignMember()" class="space-y-3">
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Lengkap (Account Name)</label>
-                <input 
-                  type="text" 
-                  [(ngModel)]="newMemberName" 
-                  name="memberName"
-                  placeholder="Misal: Agus Setiawan"
-                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:border-navy-600 focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Email Pengguna (ID Akun)</label>
-                <input 
-                  type="email" 
-                  [(ngModel)]="newMemberEmail" 
-                  name="memberEmail"
-                  placeholder="agus.safety@perusahaan.com"
-                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:border-navy-600 focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Departemen / Divisi</label>
-                <select 
-                  [(ngModel)]="newMemberDept"
-                  name="memberDept"
-                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold focus:border-navy-600 focus:outline-none bg-white"
-                >
-                  <option value="HSE Operations">HSE Operations (K3L)</option>
-                  <option value="Operasional Lapangan">Operasional Lapangan</option>
-                  <option value="Konstruksi & Sipil">Konstruksi & Sipil</option>
-                  <option value="Mekanikal & Elektrikal">Mekanikal & Elektrikal</option>
-                  <option value="Logistik & Warehouse">Logistik & Gudang</option>
-                  <option value="Manajemen Proyek">Manajemen Proyek</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Kata Sandi Awal</label>
-                <input 
-                  type="text" 
-                  [(ngModel)]="newMemberPassword" 
-                  name="memberPassword"
-                  placeholder="Default: Password123!"
-                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:border-navy-600 focus:outline-none"
-                />
-                <p class="text-[10px] text-slate-400 mt-0.5">Kosongkan bila ingin memakai password default: <code class="text-navy-700 font-bold">Password123!</code></p>
-              </div>
-
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Peran (Role yang Dibutuhkan)</label>
-                <select 
-                  [(ngModel)]="newMemberRole"
-                  name="memberRole"
-                  class="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold focus:border-navy-600 focus:outline-none bg-white"
-                >
-                  <option value="petugas">👷 Petugas (Pengisi Observasi Genba)</option>
-                  <option value="supervisor">🔍 Supervisor (Verifikator Tindak Lanjut)</option>
-                  <option value="admin">⚙️ Admin Proyek (Full Kontrol)</option>
-                </select>
-              </div>
-
-              <button 
-                type="submit"
-                [disabled]="!newMemberEmail.trim() || isAssigningMember()"
-                class="w-full bg-navy-800 text-white text-xs font-bold py-3 rounded-xl hover:bg-navy-900 disabled:opacity-50 active:scale-95 transition-all shadow-xs flex items-center justify-center gap-2 mt-2"
-              >
-                @if (isAssigningMember()) {
-                  <span>Memproses...</span>
-                } @else {
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-                  <span>Daftarkan & Tugaskan ke Proyek</span>
-                }
-              </button>
-            </form>
-          </div>
-
-          <!-- Daftar Anggota (2 cols) -->
-          <div class="lg:col-span-2 space-y-3">
-            <div class="flex items-center justify-between pb-1">
-              <span class="text-xs font-bold text-slate-700">Daftar Anggota Aktif ({{ members().length }})</span>
-              <span class="text-[11px] text-slate-400">Pemberian peran berlaku spesifik per proyek</span>
-            </div>
-
-            @if (members().length === 0) {
-              <div class="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center">
-                <span class="text-3xl block mb-2">👥</span>
-                <h4 class="text-xs font-bold text-slate-700">Belum ada anggota terdaftar</h4>
-                <p class="text-[11px] text-slate-400 mt-1">Tugaskan pengguna melalui formulir di samping.</p>
-              </div>
-            }
-
-            @for (m of members(); track m.uid) {
-              <div class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-slate-300 transition-colors">
-                <div class="flex items-center gap-3">
-                  <!-- Avatar Initial -->
-                  <div 
-                    [ngClass]="{
-                      'bg-indigo-100 text-indigo-800': m.role === 'admin',
-                      'bg-amber-100 text-amber-800': m.role === 'supervisor',
-                      'bg-sky-100 text-sky-800': m.role === 'petugas'
-                    }"
-                    class="w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-xs uppercase flex-shrink-0"
-                  >
-                    {{ (m.name || m.email || 'U')[0] }}
-                  </div>
-                  <div>
-                    <h4 class="text-xs sm:text-sm font-bold text-slate-900">{{ m.name || m.email?.split('@')?.[0] || m.uid }}</h4>
-                    <span class="text-[11px] text-slate-400 block font-mono">{{ m.email || '-' }}</span>
-                  </div>
-                </div>
-
-                <!-- Role Selector & Remove Action -->
-                <div class="flex items-center gap-2.5 self-end sm:self-center">
-                  <select 
-                    [ngModel]="m.role"
-                    (ngModelChange)="updateMemberRole(m, $event)"
-                    class="rounded-xl border border-slate-300 py-1.5 px-3 text-xs font-bold focus:border-navy-600 focus:outline-none bg-slate-50 cursor-pointer"
-                  >
-                    <option value="petugas">Petugas</option>
-                    <option value="supervisor">Supervisor</option>
-                    <option value="admin">Admin Proyek</option>
-                  </select>
-
-                  <button 
-                    (click)="confirmRemoveMember(m)"
-                    class="text-xs font-semibold text-rose-600 hover:bg-rose-50 p-2 rounded-xl border border-rose-100 transition-colors"
-                    title="Cabut Akses Pengguna dari Proyek ini"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  </button>
-                </div>
-              </div>
-            }
-          </div>
-
-        </div>
-      }
-
-      <!-- ========================================== -->
       <!-- MODAL: DOWNGRASE REASON (HSE AUDIT)       -->
       <!-- ========================================== -->
       @if (downgradeModalItem()) {
@@ -927,13 +782,12 @@ export class AdminPanelComponent implements OnInit {
   projectService = inject(ProjectService);
   geo = inject(GeolocationService);
 
-  activeTab: 'geofence' | 'areas' | 'items' | 'members' = 'geofence';
+  activeTab: 'areas' | 'items' | 'geofence' = 'areas';
   toast = signal<ToastInfo | null>(null);
 
   isSaving = signal<boolean>(false);
   isDetectingGps = signal<boolean>(false);
   isAddingArea = signal<boolean>(false);
-  isAssigningMember = signal<boolean>(false);
   isSyncingItems = signal<boolean>(false);
   isCreatingProject = signal<boolean>(false);
 
@@ -959,12 +813,6 @@ export class AdminPanelComponent implements OnInit {
   newAreaName = '';
   editingArea = signal<ProjectArea | null>(null);
   editAreaName = '';
-
-  newMemberName = '';
-  newMemberEmail = '';
-  newMemberPassword = '';
-  newMemberDept = 'HSE Operations';
-  newMemberRole: 'petugas' | 'supervisor' | 'admin' = 'petugas';
 
   showCreateProjectModal = signal<boolean>(false);
   newProjectForm = { 
@@ -1372,111 +1220,6 @@ export class AdminPanelComponent implements OnInit {
       }
     } catch {
       // Ignored
-    }
-  }
-
-  async assignMember(): Promise<void> {
-    const proj = this.auth.activeProject();
-    if (!proj || !this.newMemberEmail.trim()) return;
-
-    this.isAssigningMember.set(true);
-    const token = await this.auth.getIdToken();
-    try {
-      const targetEmail = this.newMemberEmail.trim();
-      const targetName = this.newMemberName.trim();
-      const targetPassword = this.newMemberPassword.trim() || 'Password123!';
-      const targetDept = this.newMemberDept.trim();
-      const targetRole = this.newMemberRole;
-
-      const res = await fetch('/api/admin/members', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          projectId: proj.id,
-          targetEmail: targetEmail,
-          name: targetName,
-          password: targetPassword,
-          department: targetDept,
-          role: targetRole,
-        }),
-      });
-
-      if (res.ok) {
-        this.newMemberEmail = '';
-        this.newMemberName = '';
-        this.newMemberPassword = '';
-        await this.loadMembers();
-        this.showToast(`✅ Akun "${targetEmail}" berhasil didaftarkan sebagai ${targetRole.toUpperCase()}! Sandi: ${targetPassword}`, 'success');
-      } else {
-        const err = await res.json();
-        this.showToast(err.error || 'Gagal mendaftarkan anggota', 'error');
-      }
-    } catch {
-      this.showToast('Gagal menghubungi server', 'error');
-    } finally {
-      this.isAssigningMember.set(false);
-    }
-  }
-
-  async updateMemberRole(m: ProjectMember, newRole: 'petugas' | 'supervisor' | 'admin'): Promise<void> {
-    const proj = this.auth.activeProject();
-    if (!proj) return;
-
-    const token = await this.auth.getIdToken();
-    try {
-      const res = await fetch('/api/admin/members', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          projectId: proj.id,
-          targetUid: m.uid,
-          targetEmail: m.email,
-          role: newRole,
-        }),
-      });
-
-      if (res.ok) {
-        m.role = newRole;
-        this.showToast(`✅ Peran pengguna berhasil diubah ke ${newRole.toUpperCase()}`, 'success');
-      } else {
-        const err = await res.json();
-        this.showToast(err.error || 'Gagal mengubah peran anggota', 'error');
-      }
-    } catch {
-      this.showToast('Gagal menghubungi server', 'error');
-    }
-  }
-
-  async confirmRemoveMember(m: ProjectMember): Promise<void> {
-    if (!confirm(`Cabut akses ${m.name || m.email} dari proyek ini?`)) {
-      return;
-    }
-
-    const proj = this.auth.activeProject();
-    if (!proj) return;
-
-    const token = await this.auth.getIdToken();
-    try {
-      const res = await fetch(`/api/admin/members?projectId=${proj.id}&uid=${m.uid}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        await this.loadMembers();
-        this.showToast(`✅ Akses pengguna berhasil dicabut dari proyek`, 'success');
-      } else {
-        const err = await res.json();
-        this.showToast(err.error || 'Gagal mencabut akses anggota', 'error');
-      }
-    } catch {
-      this.showToast('Gagal menghubungi server', 'error');
     }
   }
 

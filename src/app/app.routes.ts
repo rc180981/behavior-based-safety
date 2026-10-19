@@ -8,6 +8,7 @@ import { TemuanSayaComponent } from './features/temuan/temuan-saya.component';
 import { TemuanListComponent } from './features/temuan/temuan-list.component';
 import { TemuanDetailComponent } from './features/temuan/temuan-detail.component';
 import { AdminPanelComponent } from './features/admin/admin-panel.component';
+import { UserManagementComponent } from './features/admin/user-management.component';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard, superAdminGuard } from './core/guards/role.guard';
 
@@ -51,6 +52,11 @@ export const routes: Routes = [
   { 
     path: 'admin', 
     component: AdminPanelComponent, 
+    canActivate: [authGuard, adminGuard] 
+  },
+  { 
+    path: 'admin/users', 
+    component: UserManagementComponent, 
     canActivate: [authGuard, adminGuard] 
   },
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },

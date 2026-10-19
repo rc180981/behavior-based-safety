@@ -93,8 +93,11 @@ import { OfflineSyncService } from '../../core/services/offline-sync.service';
 
               <!-- Admin & SuperAdmin only -->
               @if (auth.isAdmin()) {
-                <a routerLink="/admin" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-xl text-slate-300 hover:text-white transition-colors">
-                  Admin
+                <a routerLink="/admin" routerLinkActive="bg-navy-800 text-white" [routerLinkActiveOptions]="{exact: true}" class="px-3 py-2 rounded-xl text-slate-300 hover:text-white transition-colors">
+                  Admin Panel
+                </a>
+                <a routerLink="/admin/users" routerLinkActive="bg-navy-800 text-white" class="px-3 py-2 rounded-xl text-slate-300 hover:text-white transition-colors">
+                  Kelola Pengguna
                 </a>
               }
             </nav>

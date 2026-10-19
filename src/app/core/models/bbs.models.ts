@@ -44,6 +44,7 @@ export interface ProjectMember {
   active: boolean;
   name?: string;
   email?: string;
+  department?: string;
 }
 
 export interface ProjectArea {
