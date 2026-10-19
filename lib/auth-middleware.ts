@@ -105,6 +105,18 @@ export async function checkProjectRole(
 }
 
 export async function parseJsonBody<T>(req: IncomingMessage): Promise<T> {
+  const anyReq = req as unknown as { body?: unknown };
+  if (anyReq.body !== undefined && anyReq.body !== null) {
+    if (typeof anyReq.body === 'string') {
+      try {
+        return JSON.parse(anyReq.body) as T;
+      } catch {
+        return {} as T;
+      }
+    }
+    return anyReq.body as T;
+  }
+
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', (chunk) => {
@@ -112,7 +124,7 @@ export async function parseJsonBody<T>(req: IncomingMessage): Promise<T> {
     });
     req.on('end', () => {
       try {
-        resolve(body ? JSON.parse(body) : {});
+        resolve(body ? JSON.parse(body) : ({} as T));
       } catch (err) {
         reject(new Error('Invalid JSON payload'));
       }

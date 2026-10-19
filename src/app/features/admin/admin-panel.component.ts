@@ -1235,7 +1235,8 @@ export class AdminPanelComponent implements OnInit {
     try {
       const created = await this.projectService.createInitialProject(
         this.newProjectForm.name.trim(),
-        this.newProjectForm.code.trim()
+        this.newProjectForm.code.trim(),
+        this.newProjectForm.riskLevel
       );
       this.showCreateProjectModal.set(false);
       this.populateForms();

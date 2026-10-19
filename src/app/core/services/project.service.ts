@@ -26,11 +26,15 @@ export class ProjectService {
       if (!res.ok) {
         let msg = 'Gagal memuat daftar proyek';
         try {
-          const err = await res.json();
-          msg = err.error || msg;
+          const raw = await res.text();
+          try {
+            const err = JSON.parse(raw);
+            msg = err.error || msg;
+          } catch {
+            msg = raw || `HTTP ${res.status}`;
+          }
         } catch {
-          const text = await res.text();
-          msg = text || `HTTP ${res.status}`;
+          msg = `HTTP ${res.status}`;
         }
         throw new Error(msg);
       }
@@ -82,7 +86,7 @@ export class ProjectService {
     }
   }
 
-  async createInitialProject(name: string, code: string): Promise<Project> {
+  async createInitialProject(name: string, code: string, riskLevel: 'tinggi' | 'medium' = 'tinggi'): Promise<Project> {
     const token = await this.auth.getIdToken();
     const res = await fetch('/api/admin/projects', {
       method: 'POST',
@@ -93,7 +97,7 @@ export class ProjectService {
       body: JSON.stringify({
         name,
         code,
-        riskLevel: 'tinggi',
+        riskLevel,
         geofence: {
           lat: -6.2088,
           lng: 106.8456,
@@ -104,19 +108,20 @@ export class ProjectService {
       }),
     });
 
+    const raw = await res.text();
+    let data: Record<string, unknown> = {};
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      // Non-JSON response
+    }
+
     if (!res.ok) {
-      let errorMsg = 'Gagal membuat proyek';
-      try {
-        const err = await res.json();
-        errorMsg = err.error || errorMsg;
-      } catch {
-        const text = await res.text();
-        errorMsg = text || `HTTP ${res.status}: ${res.statusText}`;
-      }
+      const errorMsg = (data['error'] as string) || raw || `HTTP ${res.status}: ${res.statusText}`;
       throw new Error(errorMsg);
     }
 
-    const created = await res.json();
+    const created = data as unknown as Project;
     await this.loadProjects();
     this.auth.setActiveProject(created, 'admin');
     return created;
