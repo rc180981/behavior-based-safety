@@ -49,8 +49,11 @@ export function getFirebaseAdmin(): App {
       storageBucket: process.env['FIREBASE_STORAGE_BUCKET'] || `${projectId}.firebasestorage.app`,
     });
   } else {
-    // Fallback to default application credentials if running in GCP
-    app = initializeApp();
+    const missing: string[] = [];
+    if (!projectId) missing.push('FIREBASE_PROJECT_ID');
+    if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL');
+    if (!privateKey) missing.push('FIREBASE_PRIVATE_KEY');
+    throw new Error(`Firebase Admin SDK belum aktif di Vercel. Variabel environment belum disetel di Dashboard Vercel: ${missing.join(', ')}`);
   }
 
   return app;
