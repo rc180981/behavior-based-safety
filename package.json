@@ -10,6 +10,9 @@
     "create-users": "node scripts/create-auth-users.js"
   },
   "private": true,
+  "engines": {
+    "node": ">=20.x"
+  },
   "dependencies": {
     "@angular/common": "^19.2.0",
     "@angular/compiler": "^19.2.0",
@@ -20,7 +23,7 @@
     "@angular/router": "^19.2.0",
     "@angular/service-worker": "^19.2.0",
     "firebase": "^13.0.0",
-    "firebase-admin": "^14.5.0",
+    "firebase-admin": "^12.7.0",
     "html5-qrcode": "^2.3.8",
     "lucide-angular": "^1.0.0",
     "qrcode": "^1.5.4",
