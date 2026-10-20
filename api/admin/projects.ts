@@ -1,15 +1,22 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { 
-  verifyAuthToken, 
-  checkProjectRole, 
-  parseJsonBody, 
-  recordAuditLog, 
-  sendJson 
-} from '../../lib/auth-middleware';
-import { getFirestore } from '../../lib/firebase-admin';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const replyJson = (code: number, data: unknown) => {
+    res.statusCode = code;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(data));
+  };
+
   try {
+    const { 
+      verifyAuthToken, 
+      checkProjectRole, 
+      parseJsonBody, 
+      recordAuditLog, 
+      sendJson 
+    } = await import('../../lib/auth-middleware');
+    const { getFirestore } = await import('../../lib/firebase-admin');
+
     const user = await verifyAuthToken(req);
     if (!user) {
       return sendJson(res, 401, { error: 'Sesi login tidak valid atau telah berakhir. Silakan login kembali.' });
@@ -166,7 +173,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return sendJson(res, 405, { error: 'Method not allowed' });
   } catch (err: unknown) {
     console.error('Unhandled error in /api/admin/projects:', err);
-    const msg = err instanceof Error ? err.message : String(err);
-    return sendJson(res, 500, { error: msg });
+    const msg = err instanceof Error ? err.stack || err.message : String(err);
+    replyJson(500, { error: msg });
   }
 }
