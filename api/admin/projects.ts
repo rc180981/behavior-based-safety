@@ -7,6 +7,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.end(JSON.stringify(data));
   };
 
+  if (req.url && req.url.includes('ping=true')) {
+    const fbKeys = Object.keys(process.env).filter(k => k.toUpperCase().includes('FIREBASE'));
+    return replyJson(200, {
+      status: 'online',
+      node: process.version,
+      firebaseEnvKeysFound: fbKeys,
+    });
+  }
+
   try {
     const { 
       verifyAuthToken, 
